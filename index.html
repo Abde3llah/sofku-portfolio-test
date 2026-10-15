@@ -1205,25 +1205,27 @@ body.dark .pricing-card.featured ul li,body.dark .testimonial-card.featured-revi
   .showcase-track { flex-wrap:wrap; width:100%; justify-content:center; } .showcase-track img { max-width:40%; height:auto; aspect-ratio:16/9; }
 }
 
-/* Phone gallery: one manually swipeable row; desktop belts stay unchanged. */
+/* Phone gallery: three full-width slideshows. Desktop belts stay unchanged. */
+.gallery-controls { display:none; }
 @media (max-width: 640px) {
-  #showcase {
-    width:100%; margin-left:0; margin-bottom:64px; padding:8px 0 18px;
-    flex-direction:row; gap:12px; overflow-x:auto; overflow-y:hidden;
-    scroll-snap-type:x mandatory; scroll-padding-inline:0;
-    overscroll-behavior-x:contain; scrollbar-width:thin;
-    scrollbar-color:var(--accent) var(--border);
-    -webkit-overflow-scrolling:touch;
-  }
+  #showcase { width:100%; margin-left:0; margin-bottom:64px; padding:8px 0;
+    flex-direction:column; gap:12px; overflow:hidden; }
   #showcase .showcase-fade-left,#showcase .showcase-fade-right { display:none; }
-  #showcase .showcase-track { display:contents; animation:none; transform:none; }
-  #showcase .showcase-track img {
-    flex:0 0 100%; width:100%; max-width:none; height:auto;
-    aspect-ratio:16 / 9; object-fit:contain; border-radius:12px;
+  #showcase .showcase-track { display:flex; flex-wrap:nowrap; justify-content:flex-start;
+    width:100%; gap:12px; animation:none; transform:none; overflow-x:auto;
+    overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain;
+    scrollbar-width:none; border-radius:12px; -webkit-overflow-scrolling:touch; }
+  #showcase .showcase-track::-webkit-scrollbar { display:none; }
+  #showcase .showcase-track img { flex:0 0 100%; width:100%; max-width:none;
+    height:auto; aspect-ratio:16 / 9; object-fit:contain; border-radius:12px;
     scroll-snap-align:start; scroll-snap-stop:always;
-    filter:none; transform:none; box-shadow:none;
-  }
+    filter:none; transform:none; box-shadow:none; }
   #showcase .showcase-track img:nth-child(n+11) { display:none; }
+  .gallery-controls { display:flex; justify-content:space-between; align-items:center;
+    gap:12px; color:var(--muted2); font-size:11px; padding:2px 0 5px; }
+  .gallery-play { min-height:38px; padding:8px 13px; border:1px solid var(--border);
+    border-radius:999px; color:var(--ink); background:var(--card); cursor:pointer;
+    font:inherit; font-size:11px; }
 }
 </style>
 </head>
@@ -2089,6 +2091,61 @@ document.addEventListener('DOMContentLoaded', () => {
   belt.forEach(image => { image.tabIndex = 0; image.setAttribute('role','button'); image.setAttribute('aria-label', `Enlarge ${image.alt}`); image.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); image.click(); } }); });
 });
 
+
+// Phone slideshows rotate only while the gallery is visible.
+document.addEventListener('DOMContentLoaded', () => {
+  const gallery = document.querySelector('#showcase');
+  const tracks = [...gallery.querySelectorAll('.showcase-track')];
+  const phone = matchMedia('(max-width: 640px)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const controls = document.createElement('div'); controls.className = 'gallery-controls';
+  const hint = document.createElement('span'); hint.textContent = 'Swipe to explore · Tap to enlarge';
+  const play = document.createElement('button'); play.className = 'gallery-play'; play.type = 'button';
+  play.setAttribute('aria-label', 'Pause automatic thumbnail slideshows');
+  controls.append(hint, play); gallery.prepend(controls);
+  let paused = reduced.matches, visible = false, holdUntil = 0;
+  const sync = () => {
+    play.textContent = paused ? 'Play slideshows' : 'Pause slideshows';
+    play.setAttribute('aria-label', paused ? 'Play automatic thumbnail slideshows' : 'Pause automatic thumbnail slideshows');
+    play.setAttribute('aria-pressed', String(paused));
+  };
+  play.addEventListener('click', () => { paused = !paused; sync(); }); sync();
+  new IntersectionObserver(entries => { visible = entries[0].isIntersecting; }, {threshold:0.15}).observe(gallery);
+  const updateSemantics = () => {
+    tracks.forEach((track, row) => {
+      const images = [...track.querySelectorAll('img')];
+      const index = Math.round(track.scrollLeft / (track.clientWidth + 12));
+      images.forEach((image, i) => {
+        if (phone.matches) { image.tabIndex = i === index && i < 10 ? 0 : -1; image.setAttribute('aria-hidden', String(i !== index || i >= 10)); }
+        else { image.tabIndex = 0; image.removeAttribute('aria-hidden'); }
+      });
+    });
+  };
+  tracks.forEach(track => {
+    track.addEventListener('scroll', updateSemantics, {passive:true});
+    track.addEventListener('pointerdown', () => { holdUntil = Date.now() + 6000; }, {passive:true});
+    track.addEventListener('keydown', e => {
+      if (!phone.matches || !['ArrowLeft','ArrowRight'].includes(e.key)) return;
+      e.preventDefault(); holdUntil = Date.now() + 6000;
+      const count = Math.min(10, track.querySelectorAll('img').length), step = track.clientWidth + 12;
+      const index = (Math.round(track.scrollLeft / step) + (e.key === 'ArrowRight' ? 1 : -1) + count) % count;
+      track.scrollTo({left:index*step, behavior:reduced.matches ? 'instant' : 'smooth'});
+    });
+  });
+  phone.addEventListener('change', () => { tracks.forEach(t => t.scrollTo({left:0,behavior:'instant'})); updateSemantics(); });
+  reduced.addEventListener('change', () => { if (reduced.matches) { paused = true; sync(); } });
+  window.addEventListener('resize', updateSemantics, {passive:true});
+  updateSemantics();
+  setInterval(() => {
+    if (!phone.matches || paused || !visible || document.hidden || Date.now() < holdUntil ||
+        document.querySelector('.lightbox.open, .modal-overlay.open') || tracks.some(t => t.contains(document.activeElement))) return;
+    tracks.forEach(track => {
+      const count = Math.min(10, track.querySelectorAll('img').length), step = track.clientWidth + 12;
+      const next = (Math.round(track.scrollLeft / step) + 1) % count;
+      track.scrollTo({left:next*step, behavior:next === 0 ? 'instant' : 'smooth'});
+    });
+  }, 3000);
+});
 </script>
 
 
