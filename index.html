@@ -2103,7 +2103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const play = document.createElement('button'); play.className = 'gallery-play'; play.type = 'button';
   play.setAttribute('aria-label', 'Pause automatic thumbnail slideshows');
   controls.append(hint, play); gallery.prepend(controls);
-  let paused = reduced.matches, visible = false, holdUntil = 0;
+  let paused = reduced.matches, visible = false, dragging = false;
   const sync = () => {
     play.textContent = paused ? 'Play slideshows' : 'Pause slideshows';
     play.setAttribute('aria-label', paused ? 'Play automatic thumbnail slideshows' : 'Pause automatic thumbnail slideshows');
@@ -2123,22 +2123,24 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   tracks.forEach(track => {
     track.addEventListener('scroll', updateSemantics, {passive:true});
-    track.addEventListener('pointerdown', () => { holdUntil = Date.now() + 6000; }, {passive:true});
+    track.addEventListener('pointerdown', () => { dragging = true; }, {passive:true});
     track.addEventListener('keydown', e => {
       if (!phone.matches || !['ArrowLeft','ArrowRight'].includes(e.key)) return;
-      e.preventDefault(); holdUntil = Date.now() + 6000;
+      e.preventDefault(); paused = true; sync();
       const count = Math.min(10, track.querySelectorAll('img').length), step = track.clientWidth + 12;
       const index = (Math.round(track.scrollLeft / step) + (e.key === 'ArrowRight' ? 1 : -1) + count) % count;
       track.scrollTo({left:index*step, behavior:reduced.matches ? 'instant' : 'smooth'});
     });
   });
+  window.addEventListener('pointerup', () => { dragging = false; }, {passive:true});
+  window.addEventListener('pointercancel', () => { dragging = false; }, {passive:true});
   phone.addEventListener('change', () => { tracks.forEach(t => t.scrollTo({left:0,behavior:'instant'})); updateSemantics(); });
   reduced.addEventListener('change', () => { if (reduced.matches) { paused = true; sync(); } });
   window.addEventListener('resize', updateSemantics, {passive:true});
   updateSemantics();
   setInterval(() => {
-    if (!phone.matches || paused || !visible || document.hidden || Date.now() < holdUntil ||
-        document.querySelector('.lightbox.open, .modal-overlay.open') || tracks.some(t => t.contains(document.activeElement))) return;
+    if (!phone.matches || paused || !visible || document.hidden || dragging ||
+        document.querySelector('.lightbox.open, .modal-overlay.open')) return;
     tracks.forEach(track => {
       const count = Math.min(10, track.querySelectorAll('img').length), step = track.clientWidth + 12;
       const next = (Math.round(track.scrollLeft / step) + 1) % count;
@@ -2146,6 +2148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, 3000);
 });
+
 </script>
 
 
