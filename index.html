@@ -1205,7 +1205,7 @@ body.dark .pricing-card.featured ul li,body.dark .testimonial-card.featured-revi
   .showcase-track { flex-wrap:wrap; width:100%; justify-content:center; } .showcase-track img { max-width:40%; height:auto; aspect-ratio:16/9; }
 }
 
-/* Phone gallery: three full-width slideshows. Desktop belts stay unchanged. */
+/* Phone gallery: two full-width slideshows moving in opposite directions. */
 .gallery-controls { display:none; }
 @media (max-width: 640px) {
   #showcase { width:100%; margin-left:0; margin-bottom:64px; padding:8px 0;
@@ -1216,6 +1216,7 @@ body.dark .pricing-card.featured ul li,body.dark .testimonial-card.featured-revi
     overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain;
     scrollbar-width:none; border-radius:12px; -webkit-overflow-scrolling:touch; }
   #showcase .showcase-track::-webkit-scrollbar { display:none; }
+  #showcase .showcase-track:last-child { display:none; }
   #showcase .showcase-track img { flex:0 0 100%; width:100%; max-width:none;
     height:auto; aspect-ratio:16 / 9; object-fit:contain; border-radius:12px;
     scroll-snap-align:start; scroll-snap-stop:always;
@@ -2134,17 +2135,26 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.addEventListener('pointerup', () => { dragging = false; }, {passive:true});
   window.addEventListener('pointercancel', () => { dragging = false; }, {passive:true});
-  phone.addEventListener('change', () => { tracks.forEach(t => t.scrollTo({left:0,behavior:'instant'})); updateSemantics(); });
+  const resetRows = () => {
+    tracks.forEach((track, row) => {
+      const count = Math.min(10, track.querySelectorAll('img').length);
+      track.scrollTo({left:phone.matches && row === 0 ? (count - 1) * (track.clientWidth + 12) : 0,behavior:'instant'});
+    });
+    updateSemantics();
+  };
+  phone.addEventListener('change', resetRows);
   reduced.addEventListener('change', () => { if (reduced.matches) { paused = true; sync(); } });
   window.addEventListener('resize', updateSemantics, {passive:true});
-  updateSemantics();
+  resetRows();
   setInterval(() => {
     if (!phone.matches || paused || !visible || document.hidden || dragging ||
         document.querySelector('.lightbox.open, .modal-overlay.open')) return;
-    tracks.forEach(track => {
+    tracks.slice(0, 2).forEach((track, row) => {
       const count = Math.min(10, track.querySelectorAll('img').length), step = track.clientWidth + 12;
-      const next = (Math.round(track.scrollLeft / step) + 1) % count;
-      track.scrollTo({left:next*step, behavior:next === 0 ? 'instant' : 'smooth'});
+      const current = Math.round(track.scrollLeft / step);
+      const next = (current + (row === 0 ? -1 : 1) + count) % count;
+      const wrapped = Math.abs(next - current) > 1;
+      track.scrollTo({left:next*step, behavior:wrapped ? 'instant' : 'smooth'});
     });
   }, 3000);
 });
