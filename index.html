@@ -1204,6 +1204,27 @@ body.dark .pricing-card.featured ul li,body.dark .testimonial-card.featured-revi
   .scroll-reveal,.stagger-item,.intro-tag,.hero-sub,.hero-actions,.hero-stats,.hero-line,.stagger-pills span { opacity:1!important; transform:none!important; }
   .showcase-track { flex-wrap:wrap; width:100%; justify-content:center; } .showcase-track img { max-width:40%; height:auto; aspect-ratio:16/9; }
 }
+
+/* Phone gallery: one manually swipeable row; desktop belts stay unchanged. */
+@media (max-width: 640px) {
+  #showcase {
+    width:100%; margin-left:0; margin-bottom:64px; padding:8px 0 18px;
+    flex-direction:row; gap:12px; overflow-x:auto; overflow-y:hidden;
+    scroll-snap-type:x mandatory; scroll-padding-inline:0;
+    overscroll-behavior-x:contain; scrollbar-width:thin;
+    scrollbar-color:var(--accent) var(--border);
+    -webkit-overflow-scrolling:touch;
+  }
+  #showcase .showcase-fade-left,#showcase .showcase-fade-right { display:none; }
+  #showcase .showcase-track { display:contents; animation:none; transform:none; }
+  #showcase .showcase-track img {
+    flex:0 0 100%; width:100%; max-width:none; height:auto;
+    aspect-ratio:16 / 9; object-fit:contain; border-radius:12px;
+    scroll-snap-align:start; scroll-snap-stop:always;
+    filter:none; transform:none; box-shadow:none;
+  }
+  #showcase .showcase-track img:nth-child(n+11) { display:none; }
+}
 </style>
 </head>
 <body>
